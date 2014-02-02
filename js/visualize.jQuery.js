@@ -5,6 +5,16 @@
  * Copyright (c) 2009 Filament Group 
  * licensed under MIT (filamentgroup.com/examples/mit-license.txt)
  * --------------------------------------------------------------------
+ * 
+ * Contributor: Andrew Higgs (andrew.m.higgs@gmail.com)
+ * Dates can be a problem on x-axis, so I implemented a change. This 
+ * change adds a title to the x-axis label of whatever was in the 
+ * title of the <td> from which the data is being scraped. E.G.:
+ *   <td title='2014-01-31'>31</td>
+ * '31' is used for the label and '2014-01-31' is used for the title.
+ * 
+ * Add rotateX (true false) so that x-axis labels can be rotated.
+ * 
 */
 (function($) { 
 $.fn.visualize = function(options, container){
@@ -28,6 +38,7 @@ $.fn.visualize = function(options, container){
 			lineWeight: 4, //for line and area - stroke weight
 			barGroupMargin: 10,
 			barMargin: 1, //space around bars in bar chart (added to both sides of bar)
+      rotateX: false,
 			yLabelInterval: 30 //distance between y labels
 		},options);
 		
@@ -91,7 +102,7 @@ $.fn.visualize = function(options, container){
 						$(allData).each(function(){
 							if(parseFloat(this,10)>topValue) topValue = parseFloat(this);
 						});
-						return topValue;
+						return Math.ceil(topValue);
 				},
 				bottomValue: function(){
 						var bottomValue = 0;
@@ -156,6 +167,22 @@ $.fn.visualize = function(options, container){
 						});
 					}
 					return xLabels;
+				},
+				xTitles: function(){ 
+          //Strip out titles from the table data rows and use them later
+          //  to apply a 'hint' to x-axis labels
+					var xTitles = [];
+					if(o.parseDirection == 'x'){
+						self.find('tr:eq(0) th').filter(o.colFilter).each(function(){
+							xTitles.push($(this).attr('title'));
+						});
+					}
+					else {
+						self.find('tr:gt(0) th').filter(o.rowFilter).each(function(){
+							xTitles.push($(this).attr('title'));
+						});
+					}
+					return xTitles;
 				},
 				yLabels: function(){
 					var yLabels = [];
@@ -244,18 +271,28 @@ $.fn.visualize = function(options, container){
 					.width(canvas.width())
 					.height(canvas.height())
 					.insertBefore(canvas);
+        var j = -1;
 				$.each(xLabels, function(i){ 
+          j++;
 					var thisLi = $('<li><span>'+this+'</span></li>')
 						.prepend('<span class="line" />')
 						.css('left', xInterval * i)
 						.appendTo(xlabelsUL);						
 					var label = thisLi.find('span:not(.line)');
 					var leftOffset = label.width()/-2;
-					if(i == 0){ leftOffset = 0; }
-					else if(i== xLabels.length-1){ leftOffset = -label.width(); }
+          if (!(o.rotateX)) {
+					  if(i == 0){ leftOffset = 0; }
+					  else if(i== xLabels.length-1){ leftOffset = -label.width(); }
+          }
 					label
 						.css('margin-left', leftOffset)
+            .attr('title', xTitles[j])
 						.addClass('label');
+          if (o.rotateX) {
+            label
+              .addClass('rotate')
+              .css('top', o.height + 25);
+          }
 				});
 
 				//write Y labels
@@ -323,14 +360,18 @@ $.fn.visualize = function(options, container){
 					.width(canvas.width())
 					.height(canvas.height())
 					.insertBefore(canvas);
+        var j = -1;
 				$.each(xLabels, function(i){ 
+          j++;
 					var thisLi = $('<li><span class="label">'+this+'</span></li>')
 						.prepend('<span class="line" />')
 						.css('left', xInterval * i)
 						.width(xInterval)
 						.appendTo(xlabelsUL);
 					var label = thisLi.find('span.label');
-					label.addClass('label');
+					label
+            .attr('title', xTitles[j])
+            .addClass('label');
 				});
 
 				//write Y labels
@@ -405,6 +446,7 @@ $.fn.visualize = function(options, container){
 		var totalYRange = tableData.totalYRange();
 		var zeroLoc = o.height * (topValue/totalYRange);
 		var xLabels = tableData.xLabels();
+		var xTitles = tableData.xTitles();
 		var yLabels = tableData.yLabels();
 								
 		//title/key container
